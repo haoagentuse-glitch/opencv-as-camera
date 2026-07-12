@@ -54,8 +54,18 @@ def sh_opening(u, fi):
 
 # ---- 10~18s 少女屋頂停格：只有頭髮衣角在動，鏡頭慢推 ----
 
+_GIRL_CLEAN = 48   # 1.mp4 乾淨前段上限；~frame50 之後裙擺融化破圖，避開
+
+
 def sh_girl_roof(u, fi):
-    src = fx.pingpong(GIRL_V, fi)
+    # 靜態推進(0~1.5s) → 影片乾淨前段微動(1.5~4.5s) → 凍結最後乾淨格續推(4.5~8s)
+    if fi < 1.5 * FPS:
+        vi = 0
+    elif fi < 4.5 * FPS:
+        vi = int((fi - 1.5 * FPS) / (3 * FPS) * _GIRL_CLEAN)
+    else:
+        vi = _GIRL_CLEAN
+    src = GIRL_V[min(vi, _GIRL_CLEAN)]
     zoom = fx.lerp(1.02, 1.28, fx.ease(u))
     return cam(src, 0.5, fx.lerp(0.45, 0.38, u), zoom)
 
@@ -165,6 +175,56 @@ def sh_last_signal(u, fi):
     return frame
 
 
+# ---- 60~69s 終端黑掉後浮出的 console 式片尾 ----
+
+_CREDITS = [
+    "> SIGNAL LOST",
+    "",
+    "  THE LAST SIGNAL",
+    "",
+    "  directed by",
+    "    TSOU, HAO-CHE",
+    "",
+    "  rendered in pure opencv",
+    "    numpy    python",
+    "    os       math",
+    "",
+    "  with",
+    "    claude",
+    "",
+    "  no one answered.",
+]
+_AMBER = (60, 200, 255)                       # 琥珀色映像管磷光（BGR）
+
+
+def sh_credits(u, fi):
+    frame = BLACK.copy()
+    t = fi / FPS
+    x0, y0, dy = 150, 132, 34
+    last_shown = -1
+    for i, line in enumerate(_CREDITS):
+        appear = 0.4 + i * 0.42                # 逐行像終端機列印出來
+        if t < appear:
+            break
+        a = min((t - appear) / 0.22, 1.0)      # 每行快速淡入
+        col = tuple(int(c * a) for c in _AMBER)
+        if line:
+            cv2.putText(frame, line, (x0, y0 + i * dy),
+                        cv2.FONT_HERSHEY_PLAIN, 1.5, col, 1, cv2.LINE_AA)
+        last_shown = i
+    # 閃爍游標，跟在最後印出的那行尾端
+    if last_shown >= 0 and (fi // 11) % 2 == 0:
+        cur = _CREDITS[last_shown]
+        (tw, _), _ = cv2.getTextSize(cur, cv2.FONT_HERSHEY_PLAIN, 1.5, 1)
+        cx = x0 + tw + 6
+        cy = y0 + last_shown * dy
+        cv2.rectangle(frame, (cx, cy - 15), (cx + 11, cy + 2), _AMBER, -1)
+    frame = fx.scanlines(frame, 0.22)          # 保留一點映像管掃描線
+    if u > 0.86:                               # 最後整體沒入黑
+        frame = fx.fade(frame, 1.0 - (u - 0.86) / 0.14)
+    return frame
+
+
 # =====================================================================
 # 時間軸（秒）
 # =====================================================================
@@ -182,6 +242,7 @@ SHOTS = [
     (44.5, 48.0, sh_screen_reveal),
     (48.0, 52.0, sh_montage),
     (52.0, 60.0, sh_last_signal),
+    (60.0, 69.0, sh_credits),
 ]
 
 
