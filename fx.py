@@ -106,6 +106,18 @@ def door_mask(w: int, h: int, t: float, soft: int = 31) -> np.ndarray:
     return mask
 
 
+def eyelid_mask(w: int, h: int, t: float, soft: int = 41) -> np.ndarray:
+    """眼瞼張開：中央橫帶向上下展開，t=0 全黑（閉眼）、t=1 全亮（睜開）。
+    t 由呼叫端控制曲線（睜眼要慢起快開），這裡不再套 ease。"""
+    mask = np.zeros((h, w), np.float32)
+    half = max(1, int(h / 2 * min(max(t, 0.0), 1.0)))
+    cy = h // 2
+    mask[max(0, cy - half):min(h, cy + half), :] = 1.0
+    if soft > 1:
+        mask = cv2.GaussianBlur(mask, (soft | 1, soft | 1), 0)
+    return mask
+
+
 def radial_mask(w: int, h: int, t: float, cx_: float = 0.5, cy_: float = 0.5) -> np.ndarray:
     """圓形 reveal：從 (cx_,cy_) 比例位置向外展開，t=0 全黑、t=1 全亮"""
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)

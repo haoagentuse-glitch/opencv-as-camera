@@ -44,8 +44,10 @@ def cam(img, fx_, fy_, zoom):
 # ---- 0~10s 開場：黑 → 城市，極慢推近（雲用 3.mp4 自帶動態） ----
 
 def sh_opening(u, fi):
-    src = fx.pingpong(CITY_V, fi)
-    zoom = fx.lerp(1.0, 1.15, fx.ease(u))
+    # 雲改單向播放（pingpong 會在 5.2s 反向，讀起來像鏡頭回拉）
+    idx = min(int(fi * (len(CITY_V) - 1) / (10 * FPS - 1)), len(CITY_V) - 1)
+    src = CITY_V[idx]
+    zoom = fx.lerp(1.0, 1.15, u)          # 等速前推，末段不減速、絕不回拉
     frame = cam(src, 0.5, 0.45, zoom)
     return fx.fade(frame, min(u / 0.35, 1.0))
 
@@ -58,20 +60,20 @@ def sh_girl_roof(u, fi):
     return cam(src, 0.5, fx.lerp(0.45, 0.38, u), zoom)
 
 
-# ---- 18~28s 純剪接四連 Cut：腳 → 手 → 背影 → 天空 ----
+# ---- 18~25s 手 blur 進場，鏡頭逐漸拉遠到整個背影 ----
 
-def sh_cut_feet(u, fi):
-    return cam(GIRL, 0.5, fx.lerp(0.93, 0.90, u), 3.6)
+def sh_hand_to_back(u, fi):
+    src = fx.pingpong(BACK_V, fi)                 # 背影，帶頭髮衣角微動
+    e = fx.ease(u)
+    zoom = fx.lerp(3.6, 1.28, e)                  # 手部特寫 → 全背影
+    cx = fx.lerp(0.42, 0.50, e)                   # 手在身側 → 拉回人物中央
+    cy = fx.lerp(0.56, 0.42, e)
+    frame = cam(src, cx, cy, zoom)
+    b = int(round(fx.lerp(27, 0, min(u / 0.45, 1.0))))  # 前 45% 由糊轉清，blur 進場
+    return fx.blur(frame, b)
 
 
-def sh_cut_hand(u, fi):
-    return cam(GIRL, 0.56, 0.52, fx.lerp(4.2, 4.6, fx.ease(u)))
-
-
-def sh_cut_back(u, fi):
-    src = fx.pingpong(BACK_V, fi)
-    return cam(src, 0.5, 0.40, fx.lerp(1.25, 1.35, u))
-
+# ---- 25~28s 天空一拍 ----
 
 def sh_cut_sky(u, fi):
     src = fx.pingpong(CITY_V, fi)          # 上緣天空＋煙雲，雲自己會動
@@ -81,16 +83,24 @@ def sh_cut_sky(u, fi):
 # ---- 28~38s 塔外推近 → 門縫打開見塔內 ----
 
 def sh_tower_push(u, fi):
-    """電線塔＝通訊塔，鏡頭從全景推向塔身"""
+    """電線塔＝通訊塔，鏡頭從全景推向塔身，末段逐漸沒入黑（睜眼前的閉眼）"""
     e = fx.ease(u)
-    return cam(CITY, fx.lerp(0.40, 0.20, e), fx.lerp(0.42, 0.33, e),
-               fx.lerp(1.3, 2.6, e))
+    frame = cam(CITY, fx.lerp(0.40, 0.20, e), fx.lerp(0.42, 0.33, e),
+                fx.lerp(1.3, 2.6, e))
+    if u > 0.55:
+        frame = fx.fade(frame, 1.0 - fx.ease((u - 0.55) / 0.45))
+    return frame
 
 
-def sh_door_open(u, fi):
-    """黑 → 中央門縫由細變寬，露出塔內"""
-    inside = cam(TOWER_IN, 0.5, 0.5, fx.lerp(1.0, 1.12, u))
-    mask = fx.door_mask(OUT_W, OUT_H, u * 0.9, soft=61)
+def sh_eye_open(u, fi):
+    """睜眼感：黑 → 眼瞼上下張開，慢起快開；邊張眼邊平移掃視塔內，手持晃動"""
+    pan = fx.ease(u)
+    cx = fx.lerp(0.30, 0.68, pan)                 # 橫向掃視
+    cy = fx.lerp(0.44, 0.52, pan)
+    zoom = fx.lerp(1.28, 1.05, u)
+    inside = cam(TOWER_IN, cx, cy, zoom)
+    inside = fx.shake(inside, 4.5, seed=fi * 13 + 5)   # 手拿鏡頭感
+    mask = fx.eyelid_mask(OUT_W, OUT_H, u ** 1.9, soft=55)  # 慢起快開的睜眼曲線
     return fx.apply_mask(inside, mask)
 
 
@@ -101,8 +111,9 @@ def sh_cut_terminal(u, fi):
 
 
 def sh_cut_hand2(u, fi):
-    """伸手——同一張手的賽璐璐換個更近的取景重拍，壓暗當室內"""
+    """伸手——同一張手的賽璐璐換個更近的取景重拍，壓暗當室內、淺景深遮像素"""
     frame = cam(GIRL, 0.56, 0.52, fx.lerp(5.0, 5.6, fx.ease(u)))
+    frame = fx.blur(frame, 5)
     return fx.fade(frame, 0.7)
 
 
@@ -144,21 +155,14 @@ def sh_montage(u, fi):
     return frame
 
 
-# ---- 55~60s CRT 一句話 → 推近 → 黑 ----
-
-_MSG = "IS ANYONE STILL THERE?"
-
+# ---- 52~60s CRT 微光 → 推近 → 畫面停留 → 黑（無字） ----
 
 def sh_last_signal(u, fi):
-    base = fx.fade(cam(CRT, 0.5, 0.52, fx.lerp(1.15, 1.45, fx.ease(u))), 0.35)
-    # 打字機：前 55% 逐字，之後全句停格
-    tw = min(u / 0.55, 1.0)
-    (tw_w, _), _ = cv2.getTextSize(_MSG, cv2.FONT_HERSHEY_DUPLEX, 1.3, 2)
-    frame = fx.typewriter(base, _MSG, tw, ((OUT_W - tw_w) // 2, OUT_H // 2),
-                          scale=1.3)
+    frame = cam(CRT, 0.5, 0.52, fx.lerp(1.15, 1.5, fx.ease(u)))
+    frame = fx.fade(frame, 0.5)
     frame = fx.scanlines(frame, 0.35)
-    if u > 0.82:                             # 最後 fade to black
-        frame = fx.fade(frame, 1.0 - (u - 0.82) / 0.18)
+    if u > 0.72:                             # 末段畫面停留後沒入黑
+        frame = fx.fade(frame, 1.0 - fx.ease((u - 0.72) / 0.28))
     return frame
 
 
@@ -169,18 +173,16 @@ def sh_last_signal(u, fi):
 SHOTS = [
     (0.0, 10.0, sh_opening),
     (10.0, 18.0, sh_girl_roof),
-    (18.0, 20.5, sh_cut_feet),
-    (20.5, 23.0, sh_cut_hand),
-    (23.0, 25.5, sh_cut_back),
-    (25.5, 28.0, sh_cut_sky),
+    (18.0, 25.0, sh_hand_to_back),
+    (25.0, 28.0, sh_cut_sky),
     (28.0, 33.0, sh_tower_push),
-    (33.0, 38.0, sh_door_open),
+    (33.0, 38.0, sh_eye_open),
     (38.0, 40.5, sh_cut_terminal),
     (40.5, 42.5, sh_cut_hand2),
     (42.5, 44.5, sh_cut_button),
     (44.5, 48.0, sh_screen_reveal),
-    (48.0, 55.0, sh_montage),
-    (55.0, 60.0, sh_last_signal),
+    (48.0, 52.0, sh_montage),
+    (52.0, 60.0, sh_last_signal),
 ]
 
 
