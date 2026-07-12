@@ -98,8 +98,7 @@ def sh_eye_open(u, fi):
     cx = fx.lerp(0.30, 0.68, pan)                 # 橫向掃視
     cy = fx.lerp(0.44, 0.52, pan)
     zoom = fx.lerp(1.28, 1.05, u)
-    inside = cam(TOWER_IN, cx, cy, zoom)
-    inside = fx.shake(inside, 4.5, seed=fi * 13 + 5)   # 手拿鏡頭感
+    inside = cam(TOWER_IN, cx, cy, zoom)               # 只保留平移掃視，去掉晃動
     mask = fx.eyelid_mask(OUT_W, OUT_H, u ** 1.9, soft=55)  # 慢起快開的睜眼曲線
     return fx.apply_mask(inside, mask)
 
