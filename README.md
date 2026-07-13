@@ -46,7 +46,7 @@ python film.py preview    # 每個鏡頭抽 1 格存 output/preview/，供檢查
 film.py   時間軸（Shot 清單）＋渲染主迴圈＋VideoWriter
 fx.py     無狀態特效／運鏡函式庫
 腳本.md   原始劇本與分鏡構想
-1–5 .png/.jpg, 1–3 .mp4   靜態圖與微動素材
+assets/   靜態圖與微動素材（1–5 .png/.jpg、1–3 .mp4）
 ```
 
 `fx.py` 提供的技法：`camera`／`cam_frac`（次像素運鏡）、`ease`／`lerp`（緩動）、`pingpong`（微動 loop）、`fade`、`blur`、`rgb_split`、`shake`、`scanlines`、`vignette`、`grain`、`typewriter`，以及三種遮罩 `door_mask`／`eyelid_mask`／`radial_mask` ＋ `apply_mask`。

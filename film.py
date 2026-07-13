@@ -17,7 +17,7 @@ OUT_W, OUT_H, FPS = 960, 720, 24
 
 
 def asset(name: str) -> str:
-    return os.path.join(ROOT, name)
+    return os.path.join(ROOT, "assets", name)
 
 
 print("載入素材…")
@@ -66,8 +66,11 @@ def sh_girl_roof(u, fi):
     else:
         vi = _GIRL_CLEAN
     src = GIRL_V[min(vi, _GIRL_CLEAN)]
-    zoom = fx.lerp(1.02, 1.28, fx.ease(u))
-    return cam(src, 0.5, fx.lerp(0.45, 0.38, u), zoom)
+    # u^0.7：前段推快，約 13s(u=0.375) 把裙子（含破圖）推出畫面下緣，之後續推到胸像特寫
+    p = u ** 0.7
+    zoom = fx.lerp(1.10, 2.30, p)
+    cy = fx.lerp(0.40, 0.18, p)
+    return cam(src, 0.5, cy, zoom)
 
 
 # ---- 18~25s 手 blur 進場，鏡頭逐漸拉遠到整個背影 ----
@@ -155,12 +158,14 @@ _MONTAGE = [
 
 
 def sh_montage(u, fi):
-    idx = fi // 5                            # 5 frames ≈ 0.21s 一張
+    t = fi / FPS                             # 0~4s
+    idx = int(2.2 * t + 2.3 * t * t)         # 輪放越來越快（切換間隔隨時間縮短）
     frame = _MONTAGE[idx % len(_MONTAGE)]()
-    k = 0.3 + 0.7 * u                        # 強度爬升
-    frame = fx.rgb_split(frame, int(2 + 8 * k))
-    frame = fx.blur(frame, 3 if u < 0.5 else 5)
-    frame = fx.shake(frame, 3 + 12 * k, seed=fi * 7 + 1)
+    frame = fx.rgb_split(frame, int(3 + 3 * t))
+    frame = fx.blur(frame, int(2 + 2.2 * t))         # 畫面越來越糊
+    amp = 16.0 * max(0.0, 1.0 - t / 1.1)             # 抖動前 1.1s 由大衰減到 0，之後平緩
+    if amp > 0.2:
+        frame = fx.shake(frame, amp, seed=fi * 7 + 1)
     return frame
 
 
